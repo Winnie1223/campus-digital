@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>校园数字孪生系统</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #000; font-family: 'Microsoft YaHei', sans-serif; }
+    canvas { display: block; }
+
+    #info-panel {
+      position: fixed;
+      top: 20px;
+      left: 20px;
+      color: #fff;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(10px);
+      padding: 16px 24px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 14px;
+      pointer-events: none;
+      user-select: none;
+      z-index: 10;
+    }
+    #info-panel h1 { font-size: 18px; margin-bottom: 4px; }
+    #info-panel p { opacity: 0.7; font-size: 12px; }
+
+    #stats {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      padding: 10px 20px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,0.08);
+      font-size: 13px;
+      z-index: 10;
+      display: flex;
+      gap: 20px;
+      pointer-events: none;
+    }
+    #stats span { opacity: 0.7; }
+    #stats strong { color: #4fc3f7; }
+
+    #tooltip {
+      position: fixed;
+      display: none;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(12px);
+      color: #fff;
+      padding: 14px 20px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      font-size: 13px;
+      pointer-events: none;
+      z-index: 20;
+      max-width: 220px;
+      line-height: 1.5;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    }
+    #tooltip .name { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+    #tooltip .desc { opacity: 0.7; font-size: 12px; }
+
+    #detail-panel {
+      position: fixed;
+      top: 50%;
+      right: 30px;
+      transform: translateY(-50%);
+      display: none;
+      background: rgba(0,0,0,0.85);
+      backdrop-filter: blur(16px);
+      color: #fff;
+      padding: 24px 28px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.12);
+      z-index: 25;
+      min-width: 220px;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.5);
+      pointer-events: auto;
+    }
+    #detail-panel .dp-close {
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      cursor: pointer;
+      opacity: 0.5;
+      font-size: 16px;
+      transition: opacity 0.2s;
+    }
+    #detail-panel .dp-close:hover { opacity: 1; }
+    #detail-panel .dp-name { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+    #detail-panel .dp-desc { font-size: 14px; opacity: 0.7; margin-bottom: 12px; }
+    #detail-panel .dp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px; margin-bottom: 12px; }
+    #detail-panel .dp-grid span { font-size: 11px; opacity: 0.45; display: block; }
+    #detail-panel .dp-grid strong { font-size: 14px; }
+    #detail-panel .dp-hint { font-size: 11px; opacity: 0.35; }
+
+    #controls-hint {
+      position: fixed;
+      bottom: 80px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.3);
+      font-size: 12px;
+      z-index: 10;
+      text-align: center;
+      pointer-events: none;
+    }
+
+    #view-controls {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: flex;
+      gap: 8px;
+      pointer-events: auto;
+    }
+    #view-controls button {
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(8px);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.12);
+      padding: 8px 18px;
+      border-radius: 8px;
+      font-size: 13px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.2s;
+    }
+    #view-controls button:hover { background: rgba(255,255,255,0.15); }
+    #view-controls button.active { background: #4fc3f7; color: #000; border-color: #4fc3f7; }
+
+    #layer-controls {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10;
+      background: rgba(0,0,0,0.7);
+      backdrop-filter: blur(10px);
+      padding: 12px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff;
+      font-size: 13px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      pointer-events: auto;
+      user-select: none;
+    }
+    #layer-controls label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      opacity: 0.8;
+      transition: opacity 0.2s;
+    }
+    #layer-controls label:hover { opacity: 1; }
+    #layer-controls input[type="checkbox"] {
+      accent-color: #4fc3f7;
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div id="info-panel">
+    <h1>🏫 校园数字孪生系统</h1>
+    <p>Digital Twin Campus</p>
+  </div>
+
+  <div id="stats">
+    <div>建筑 <strong id="building-count">0</strong></div>
+    <div>树木 <strong id="tree-count">0</strong></div>
+    <div>FPS <strong id="fps-display">60</strong></div>
+  </div>
+
+  <div id="tooltip">
+    <div class="name" id="tooltip-name"></div>
+    <div class="desc" id="tooltip-desc"></div>
+  </div>
+
+  <div id="detail-panel">
+    <div class="dp-close" id="dp-close">✕</div>
+    <div class="dp-name" id="dp-name"></div>
+    <div class="dp-desc" id="dp-desc"></div>
+    <div class="dp-grid">
+      <div><span>类别</span><strong id="dp-type"></strong></div>
+      <div><span>楼层</span><strong id="dp-floors"></strong></div>
+      <div><span>面积</span><strong id="dp-area"></strong></div>
+      <div><span>开放</span><strong id="dp-hours"></strong></div>
+    </div>
+    <div class="dp-hint">点击其他建筑切换 · ESC 关闭</div>
+  </div>
+
+  <div id="controls-hint">🖱 左键旋转 · 滚轮缩放 · 右键平移</div>
+
+  <div id="view-controls">
+    <button data-view="perspective" class="active">透视视角</button>
+    <button data-view="birdseye">鸟瞰视角</button>
+    <button data-view="north">北向视角</button>
+  </div>
+
+  <div id="layer-controls">
+    <label><input type="checkbox" data-layer="labels" checked> 标签</label>
+    <label><input type="checkbox" data-layer="buildings" checked> 建筑</label>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+    // ─── Scene Setup ───
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+    scene.fog = new THREE.Fog(0x1a1a2e, 120, 250);
+
+    // Load sky image
+    const loader = new THREE.TextureLoader();
+    const skyTexture = loader.load('./sky.jpg');
+    skyTexture.colorSpace = THREE.SRGBColorSpace;
+    scene.background = skyTexture;
+    scene.fog = null;
+
+    const campus = new THREE.Group();
+    campus.scale.set(1, 1, 1);
+    scene.add(campus);
+
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 500);
+    camera.position.set(60, 50, 80);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.2;
+    document.body.prepend(renderer.domElement);
+
+    const labelRenderer = new CSS2DRenderer();
+    labelRenderer.setSize(window.innerWidth, window.innerHeight);
+    labelRenderer.domElement.style.position = 'absolute';
+    labelRenderer.domElement.style.top = '0';
+    labelRenderer.domElement.style.left = '0';
+    labelRenderer.domElement.style.pointerEvents = 'none';
+    document.body.prepend(labelRenderer.domElement);
+
+    // ─── Controls ───
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.08;
+    controls.maxPolarAngle = Math.PI;
+    controls.minDistance = 10;
+    controls.maxDistance = 180;
+    controls.target.set(0, 0, 0);
+    controls.update();
+
+    // ─── View Presets ───
+    const views = {
+      perspective: { pos: new THREE.Vector3(60, 50, 80), target: new THREE.Vector3(0, 0, 0) },
+      birdseye:    { pos: new THREE.Vector3(0, 120, 0.1), target: new THREE.Vector3(0, 0, 0) },
+      north:       { pos: new THREE.Vector3(0, 30, -90),  target: new THREE.Vector3(0, 0, 0) },
+    };
+    let viewAnimating = null; // { fromPos, toPos, fromTarget, toTarget, progress }
+
+    function switchView(name) {
+      const v = views[name];
+      if (!v) return;
+      viewAnimating = {
+        fromPos: camera.position.clone(),
+        toPos: v.pos.clone(),
+        fromTarget: controls.target.clone(),
+        toTarget: v.target.clone(),
+        progress: 0,
+      };
+      document.querySelectorAll('#view-controls button').forEach(b => b.classList.toggle('active', b.dataset.view === name));
+    }
+
+    document.querySelectorAll('#view-controls button').forEach(b => {
+      b.addEventListener('click', () => switchView(b.dataset.view));
+    });
+
+    // ─── Layer Switching ───
+    document.querySelectorAll('#layer-controls input[type="checkbox"]').forEach(cb => {
+      cb.addEventListener('change', () => {
+        const layer = cb.dataset.layer;
+        const on = cb.checked;
+        if (layer === 'labels') {
+          campus.traverse(child => {
+            if (child.isCSS2DObject) child.visible = on;
+          });
+        } else if (layer === 'buildings') {
+          campus.traverse(child => {
+            if (child.isMesh && child.userData?.type === 'building') child.visible = on;
+          });
+        }
+      });
+    });
+
+    // ─── Natural Sunlight ───
+    const ambientLight = new THREE.AmbientLight(0xaaaaaa, 0.6);
+    scene.add(ambientLight);
+
+    const hemiLight = new THREE.HemisphereLight(0x87ceeb, 0x8a8a7a, 0.7);
+    scene.add(hemiLight);
+
+    const sunLight = new THREE.DirectionalLight(0xffeedd, 3.5);
+    sunLight.position.set(60, 80, 40);
+    scene.add(sunLight);
+
+    const fillLight = new THREE.DirectionalLight(0xccddff, 0.5);
+    fillLight.position.set(-50, 40, -60);
+    scene.add(fillLight);
+
+    const backLight = new THREE.DirectionalLight(0xddccff, 0.3);
+    backLight.position.set(0, 20, -80);
+    scene.add(backLight);
+
+    // ─── Ground ───
+    const groundGeom = new THREE.PlaneGeometry(200, 200);
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0xc0c0c0,
+      roughness: 0.95,
+      metalness: 0,
+    });
+    const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.05;
+    ground.receiveShadow = true;
+    campus.add(ground);
+
+    // ─── Roads ───
+    // (removed by user request)
+
+    // ─── Helpers ───
+    const buildingData = [];
+    const buildingInfo = {
+      '图书馆 Library':           { icon: '📚', type: '文化设施', floors: 5, area: '12,000 m²', hours: '08:00-22:00' },
+      '主教学楼 Teaching A':       { icon: '🏛️', type: '教学设施', floors: 7, area: '18,000 m²', hours: '07:00-21:00' },
+      '教学楼 B Teaching B':       { icon: '🏫', type: '教学设施', floors: 5, area: '10,000 m²', hours: '07:00-21:00' },
+      '行政楼 Admin':              { icon: '🏢', type: '办公设施', floors: 4, area: '6,000 m²', hours: '09:00-18:00' },
+      '学生中心 Student Center':    { icon: '🎭', type: '活动设施', floors: 3, area: '5,000 m²', hours: '08:00-22:00' },
+      '宿舍楼 A Dorm A':           { icon: '🛏️', type: '生活设施', floors: 6, area: '8,000 m²', hours: '全天' },
+      '宿舍楼 B Dorm B':           { icon: '🛏️', type: '生活设施', floors: 6, area: '8,000 m²', hours: '全天' },
+      '宿舍楼 C Dorm C':           { icon: '🛏️', type: '生活设施', floors: 6, area: '8,000 m²', hours: '全天' },
+      '宿舍楼 D Dorm D':           { icon: '🛏️', type: '生活设施', floors: 6, area: '8,000 m²', hours: '全天' },
+      '食堂 Cafeteria':            { icon: '🍽️', type: '生活设施', floors: 2, area: '4,000 m²', hours: '06:30-20:00' },
+      '体育馆 Gym':                { icon: '🏟️', type: '体育设施', floors: 3, area: '15,000 m²', hours: '06:00-22:00' },
+      '实验楼 Lab':                { icon: '🔬', type: '科研设施', floors: 6, area: '9,000 m²', hours: '08:00-20:00' },
+      '艺术中心 Art Center':       { icon: '🎨', type: '文化设施', floors: 3, area: '4,500 m²', hours: '09:00-21:00' },
+    };
+    let buildings = 13;
+
+    function createLabel(text, color = '#4fc3f7') {
+      const div = document.createElement('div');
+      div.textContent = text;
+      div.style.color = '#fff';
+      div.style.fontSize = '12px';
+      div.style.fontWeight = '600';
+      div.style.fontFamily = "'Microsoft YaHei', sans-serif";
+      div.style.textShadow = '0 2px 8px rgba(0,0,0,0.8)';
+      div.style.background = `rgba(0,0,0,0.5)`;
+      div.style.padding = '4px 10px';
+      div.style.borderRadius = '6px';
+      div.style.border = `1px solid ${color}`;
+      div.style.backdropFilter = 'blur(4px)';
+      div.style.pointerEvents = 'none';
+      return new CSS2DObject(div);
+    }
+
+    // ─── Campus Layout ───
+
+    const gltfLoader = new GLTFLoader();
+
+    // === Central area ===
+    // Library (center) - GLB
+    gltfLoader.load('./library.glb', gltf => {
+      const m = gltf.scene;
+      m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; c.userData = { name: '图书馆 Library', desc: '校园核心学习资源中心', type: 'building' }; } });
+      m.scale.set(20, 20, 20);
+      m.position.set(0, 0, 0);
+      campus.add(m);
+      const label = createLabel('图书馆 Library');
+      label.position.set(0, 20, 0);
+      campus.add(label);
+    });
+
+    // Main Teaching Building (north) - GLB
+    gltfLoader.load('./teaching.glb', gltf => {
+      const m = gltf.scene;
+      m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; c.userData = { name: '主教学楼 Teaching A', desc: '主要教学与 lecture 教室', type: 'building' }; } });
+      m.scale.set(20, 20, 20);
+      m.rotation.y = Math.PI / 2;
+      m.position.set(0, 0, -28);
+      campus.add(m);
+      const label = createLabel('主教学楼 Teaching A');
+      label.position.set(0, 16, -28);
+      campus.add(label);
+    });
+
+    // Teaching Building B (south) - modern style
+    {
+      const mainMat = new THREE.MeshStandardMaterial({ color: 0x607d8b, roughness: 0.3, metalness: 0.2 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.6 });
+      const accentMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.4, metalness: 0.5 });
+      const frameMat = new THREE.MeshStandardMaterial({ color: 0x90a4ae, roughness: 0.2, metalness: 0.4 });
+
+      const main = new THREE.Mesh(new THREE.BoxGeometry(16, 10, 8), mainMat);
+      main.position.set(0, 5, 28);
+      main.castShadow = true; main.receiveShadow = true;
+      main.userData = { name: '教学楼 B Teaching B', desc: '实验与研讨教室', type: 'building' };
+      campus.add(main);
+
+      // Windows on all sides
+      for (const zOff of [32.05, 23.95]) {
+        for (let row = 0; row < 3; row++) {
+          for (let i = -6; i <= 6; i += 2) {
+            const panel = new THREE.Mesh(new THREE.BoxGeometry(1.5, 2, 0.08), glassMat);
+            panel.position.set(i, 2 + row * 3, zOff);
+            campus.add(panel); panel.userData = { type: 'building' };
+          }
+        }
+      }
+
+      // Accent roof
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(18, 0.4, 9), accentMat);
+      roof.position.set(0, 10.2, 28);
+      roof.castShadow = true;
+      campus.add(roof); roof.userData = { type: 'building' };
+
+      const label = createLabel('教学楼 B Teaching B');
+      label.position.set(0, 14, 28);
+      campus.add(label);
+    }
+
+    // Admin Building (east) - modern
+    {
+      const mat = new THREE.MeshStandardMaterial({ color: 0x26a69a, roughness: 0.3, metalness: 0.1 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.6 });
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.4, metalness: 0.5 });
+
+      const main = new THREE.Mesh(new THREE.BoxGeometry(12, 7, 8), mat);
+      main.position.set(28, 3.5, 0);
+      main.castShadow = true; main.receiveShadow = true;
+      main.userData = { name: '行政楼 Admin', desc: '校园行政办公中心', type: 'building' };
+      campus.add(main);
+
+      for (const zOff of [4.05, -4.05]) {
+        for (let row = 0; row < 3; row++) {
+          for (let i = -4; i <= 4; i += 2) {
+            const p = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.5, 0.08), glassMat);
+            p.position.set(28 + i, 1.5 + row * 2, zOff);
+            campus.add(p); p.userData = { type: 'building' }; p.userData = { type: 'building' };
+          }
+        }
+      }
+
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(13, 0.3, 9), roofMat);
+      roof.position.set(28, 7.15, 0);
+      roof.castShadow = true;
+      campus.add(roof); roof.userData = { type: 'building' }; roof.userData = { type: 'building' };
+
+      const label = createLabel('行政楼 Admin');
+      label.position.set(28, 11, 0);
+      campus.add(label);
+    }
+
+    // Student center (west) - modern
+    {
+      const mat = new THREE.MeshStandardMaterial({ color: 0xff7043, roughness: 0.3, metalness: 0.1 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.6 });
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.4, metalness: 0.5 });
+
+      const main = new THREE.Mesh(new THREE.BoxGeometry(12, 6, 10), mat);
+      main.position.set(-28, 3, 0);
+      main.castShadow = true; main.receiveShadow = true;
+      main.userData = { name: '学生中心 Student Center', desc: '学生活动与社团办公', type: 'building' };
+      campus.add(main);
+
+      for (const zOff of [5.05, -5.05]) {
+        for (let row = 0; row < 2; row++) {
+          for (let i = -4; i <= 4; i += 2) {
+            const p = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.8, 0.08), glassMat);
+            p.position.set(-28 + i, 1.2 + row * 2.2, zOff);
+            campus.add(p); p.userData = { type: 'building' };
+          }
+        }
+      }
+
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(13, 0.3, 11), roofMat);
+      roof.position.set(-28, 6.15, 0);
+      roof.castShadow = true;
+      campus.add(roof); roof.userData = { type: 'building' };
+
+      const label = createLabel('学生中心 Student Center');
+      label.position.set(-28, 10, 0);
+      campus.add(label);
+    }
+
+    // All dormitories - GLB
+    gltfLoader.load('./dorm.glb', gltf => {
+      const base = gltf.scene;
+      base.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; c.userData = { type: 'building' }; } });
+      const dorms = [
+        [30, -30, '宿舍楼 A Dorm A', '学生公寓 (南区)'],
+        [-30, -30, '宿舍楼 B Dorm B', '学生公寓 (北区)'],
+        [30, 30, '宿舍楼 C Dorm C', '学生公寓 (东区)'],
+        [-30, 30, '宿舍楼 D Dorm D', '学生公寓 (西区)'],
+      ];
+      for (const [dx, dz, name, desc] of dorms) {
+        const inst = base.clone();
+        inst.traverse(c => { if (c.isMesh) { c.userData = { name, desc, type: 'building' }; } });
+        inst.scale.set(20, 20, 20);
+        inst.rotation.y = Math.PI * 1.5;
+        inst.position.set(dx, 0, dz);
+        campus.add(inst);
+        const label = createLabel(name);
+        label.position.set(dx, 24, dz);
+        campus.add(label);
+      }
+    });
+
+    // Playground (behind gym and dorm B)
+    gltfLoader.load('./playground.glb', gltf => {
+      const m = gltf.scene;
+      m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; c.userData = { type: 'building', name: '操场 Playground', desc: '室外田径与足球场地' }; } });
+      m.scale.set(40, 40, 40);
+      m.position.set(-20, 0, -70);
+      campus.add(m);
+      const label = createLabel('操场 Playground');
+      label.position.set(-20, 6, -70);
+      campus.add(label);
+    });
+
+    // Fountain between gym and playground
+    function addMidFountain() {
+      const group = new THREE.Group();
+      const mat = new THREE.MeshStandardMaterial({ color: 0x556677, roughness: 0.3, metalness: 0.2 });
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(3, 3.5, 0.6, 24), mat);
+      base.position.set(0, 0.3, 0);
+      base.receiveShadow = true;
+      group.add(base);
+
+      const poolMat = new THREE.MeshStandardMaterial({ color: 0x1a3a5a, roughness: 0.1, metalness: 0.5, transparent: true, opacity: 0.8 });
+      const pool = new THREE.Mesh(new THREE.CircleGeometry(3.3, 24), poolMat);
+      pool.rotation.x = -Math.PI / 2;
+      pool.position.set(0, 0.05, 0);
+      group.add(pool);
+
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.4, 2, 8), mat);
+      pillar.position.set(0, 1.3, 0);
+      group.add(pillar);
+
+      const topMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, emissive: 0x4488ff, emissiveIntensity: 0.2 });
+      const top = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), topMat);
+      top.position.set(0, 2.6, 0);
+      group.add(top);
+
+      const ringMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, emissive: 0x4488ff, emissiveIntensity: 0.15, transparent: true, opacity: 0.6, wireframe: true });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.2, 0.04, 8, 24), ringMat);
+      ring.position.set(0, 1.0, 0);
+      ring.rotation.x = Math.PI / 3;
+      ring.userData = { animate: true, speed: 0.5 };
+      group.add(ring);
+      const ring2 = ring.clone();
+      ring2.position.y = 1.6;
+      ring2.rotation.x = -Math.PI / 4;
+      group.add(ring2);
+
+      // Water particles
+      const particleCount = 200;
+      const pPositions = new Float32Array(particleCount * 3);
+      const pSpeeds = new Float32Array(particleCount);
+      for (let i = 0; i < particleCount; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = 0.3 + Math.random() * 1.2;
+        pPositions[i * 3] = Math.cos(a) * r;
+        pPositions[i * 3 + 1] = Math.random() * 3;
+        pPositions[i * 3 + 2] = Math.sin(a) * r;
+        pSpeeds[i] = 0.5 + Math.random() * 1.0;
+      }
+      const pGeom = new THREE.BufferGeometry();
+      pGeom.setAttribute('position', new THREE.BufferAttribute(pPositions, 3));
+      const pMat = new THREE.PointsMaterial({
+        color: 0x88ccff,
+        size: 0.12,
+        transparent: true,
+        opacity: 0.7,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const particles = new THREE.Points(pGeom, pMat);
+      particles.userData = { type: 'fountainParticles', speeds: pSpeeds, count: particleCount };
+      group.add(particles);
+
+      group.scale.set(3, 3, 3);
+      group.position.set(0, 0, -55);
+      campus.add(group);
+      const fLabel = createLabel('⛲ 喷泉 Fountain');
+      fLabel.position.set(0, 12, -55);
+      campus.add(fLabel);
+    }
+    addMidFountain();
+
+    // Cafeteria (south) - modern
+    {
+      const mat = new THREE.MeshStandardMaterial({ color: 0xef5350, roughness: 0.3, metalness: 0.1 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0xffecb3, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.6 });
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.4, metalness: 0.5 });
+
+      const main = new THREE.Mesh(new THREE.BoxGeometry(14, 5, 8), mat);
+      main.position.set(-15, 2.5, 48);
+      main.castShadow = true; main.receiveShadow = true;
+      main.userData = { name: '食堂 Cafeteria', desc: '学生与教职工餐厅', type: 'building' };
+      campus.add(main);
+
+      for (const zOff of [4.05, -4.05]) {
+        for (let row = 0; row < 2; row++) {
+          for (let i = -5; i <= 5; i += 2.5) {
+            const p = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.5, 0.08), glassMat);
+            p.position.set(-15 + i, 1 + row * 2.2, 48 + zOff);
+            campus.add(p); p.userData = { type: 'building' };
+          }
+        }
+      }
+
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(15, 0.3, 9), roofMat);
+      roof.position.set(-15, 5.15, 48);
+      roof.castShadow = true;
+      campus.add(roof); roof.userData = { type: 'building' };
+
+      const label = createLabel('食堂 Cafeteria');
+      label.position.set(-15, 9, 48);
+      campus.add(label);
+    }
+
+    // Gymnasium (north) - GLB
+    gltfLoader.load('./gym.glb', gltf => {
+      const m = gltf.scene;
+      m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; c.userData = { name: '体育馆 Gym', desc: '室内体育场馆', type: 'building' }; } });
+      m.scale.set(30, 30, 30);
+      m.position.set(22, 0, -62);
+      campus.add(m);
+      const label = createLabel('体育馆 Gym');
+      label.position.set(22, 6, -62);
+      campus.add(label);
+    });
+
+    // Lab building (east-south) - modern
+    {
+      const mat = new THREE.MeshStandardMaterial({ color: 0xab47bc, roughness: 0.2, metalness: 0.2 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, roughness: 0.05, metalness: 0.3, transparent: true, opacity: 0.6 });
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.4, metalness: 0.5 });
+
+      const main = new THREE.Mesh(new THREE.BoxGeometry(10, 8, 8), mat);
+      main.position.set(48, 4, 18);
+      main.castShadow = true; main.receiveShadow = true;
+      main.userData = { name: '实验楼 Lab', desc: '科研实验室', type: 'building' };
+      campus.add(main);
+
+      for (const zOff of [4.05, -4.05]) {
+        for (let row = 0; row < 3; row++) {
+          for (const xi of [-3, -1, 1, 3]) {
+            const p = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.8, 0.08), glassMat);
+            p.position.set(48 + xi, 1.5 + row * 2.2, 18 + zOff);
+            campus.add(p); p.userData = { type: 'building' }; p.userData = { type: 'building' };
+          }
+        }
+      }
+
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(11, 0.3, 9), roofMat);
+      roof.position.set(48, 8.15, 18);
+      roof.castShadow = true;
+      campus.add(roof); roof.userData = { type: 'building' };
+
+      const label = createLabel('实验楼 Lab');
+      label.position.set(48, 12, 18);
+      campus.add(label);
+    }
+
+    // Art Center (west-north) - modern
+    {
+      const mat = new THREE.MeshStandardMaterial({ color: 0xffa726, roughness: 0.3, metalness: 0.1 });
+      const glassMat = new THREE.MeshStandardMaterial({ color: 0xffecb3, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.6 });
+      const roofMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.4, metalness: 0.5 });
+
+      const main = new THREE.Mesh(new THREE.BoxGeometry(10, 5, 8), mat);
+      main.position.set(-48, 2.5, -18);
+      main.castShadow = true; main.receiveShadow = true;
+      main.userData = { name: '艺术中心 Art Center', desc: '艺术展览与演出', type: 'building' };
+      campus.add(main);
+
+      // Glass facade - 4 windows per row
+      for (const zOff of [4.05, -4.05]) {
+        for (let row = 0; row < 2; row++) {
+          for (const xi of [-3, -1, 1, 3]) {
+            const p = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.8, 0.08), glassMat);
+            p.position.set(-48 + xi, 1 + row * 2.2, -18 + zOff);
+            campus.add(p); p.userData = { type: 'building' };
+          }
+        }
+      }
+
+      const roof = new THREE.Mesh(new THREE.BoxGeometry(11, 0.3, 9), roofMat);
+      roof.position.set(-48, 5.15, -18);
+      roof.castShadow = true;
+      campus.add(roof); roof.userData = { type: 'building' };
+
+      const label = createLabel('艺术中心 Art Center');
+      label.position.set(-48, 9, -18);
+      campus.add(label);
+    }
+
+    // ─── Trees ───
+    // Manual tree positions
+    let treePositions = [
+      [-20, 12],  // #1 - library left (moved left)
+      [-20, -40], // #2
+      [30, 20],   // #3 (moved left)
+      [40, -20],  // #4
+    ];
+    gltfLoader.load('./sakura.glb', gltf => {
+      const sakura = gltf.scene;
+      sakura.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      let idx = 0;
+      for (const [tx, tz] of treePositions) {
+        idx++;
+        const inst = sakura.clone();
+        inst.scale.set(10, 10, 10);
+        inst.position.set(tx, 0, tz);
+        campus.add(inst);
+        const label = createLabel(`🌸${idx}`);
+        label.position.set(tx, 18, tz);
+        campus.add(label);
+      }
+    });
+
+    // ─── Campus Entrance Arch (south gate) - premium ───
+    function addGate(x, z) {
+      const pillarMat = new THREE.MeshStandardMaterial({ color: 0x90a4ae, roughness: 0.2, metalness: 0.5 });
+      const trimMat = new THREE.MeshStandardMaterial({ color: 0x37474f, roughness: 0.3, metalness: 0.6 });
+      const lightMat = new THREE.MeshStandardMaterial({ color: 0xffdd77, emissive: 0xffaa44, emissiveIntensity: 0.5 });
+
+      const pillarW = 1.2;
+      const pillarD = 1.2;
+      const pillarH = 7;
+      const span = 8;
+
+      // Main pillars
+      for (const side of [-1, 1]) {
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(pillarW, pillarH, pillarD), pillarMat);
+        pillar.position.set(x + side * span / 2, pillarH / 2, z);
+        pillar.castShadow = true;
+        campus.add(pillar);
+
+        // Pillar cap
+        const cap = new THREE.Mesh(new THREE.BoxGeometry(pillarW + 0.4, 0.3, pillarD + 0.4), trimMat);
+        cap.position.set(x + side * span / 2, pillarH + 0.15, z);
+        campus.add(cap);
+
+        // Pillar base
+        const base = new THREE.Mesh(new THREE.BoxGeometry(pillarW + 0.6, 0.4, pillarD + 0.6), trimMat);
+        base.position.set(x + side * span / 2, 0.2, z);
+        campus.add(base);
+
+        // Light orb on top
+        const orb = new THREE.Mesh(new THREE.SphereGeometry(0.35, 8, 8), lightMat);
+        orb.position.set(x + side * span / 2, pillarH + 0.8, z);
+        campus.add(orb);
+      }
+
+      // Main arch beam
+      const beam = new THREE.Mesh(new THREE.BoxGeometry(span + pillarW, 0.8, 1.2), trimMat);
+      beam.position.set(x, pillarH, z);
+      beam.castShadow = true;
+      campus.add(beam);
+
+      // Decorative arch panel above
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(span - 1, 1.5, 0.2), pillarMat);
+      panel.position.set(x, pillarH + 1.4, z);
+      campus.add(panel);
+
+      // Text sign
+      const signDiv = document.createElement('div');
+      signDiv.textContent = '🏫 校园 digital twin';
+      signDiv.style.color = '#fff';
+      signDiv.style.fontSize = '18px';
+      signDiv.style.fontWeight = 'bold';
+      signDiv.style.fontFamily = "'Microsoft YaHei', sans-serif";
+      signDiv.style.textShadow = '0 2px 12px rgba(0,0,0,0.8)';
+      signDiv.style.background = 'rgba(0,0,0,0.6)';
+      signDiv.style.padding = '6px 20px';
+      signDiv.style.borderRadius = '20px';
+      signDiv.style.border = '1px solid rgba(255,255,255,0.2)';
+      signDiv.style.backdropFilter = 'blur(8px)';
+      signDiv.style.pointerEvents = 'none';
+      const signLabel = new CSS2DObject(signDiv);
+      signLabel.position.set(x, pillarH + 3, z);
+      campus.add(signLabel);
+    }
+    addGate(0, 52);
+
+    // ─── Fountain (center) ───
+    function addFountain() {
+      const baseMat = new THREE.MeshStandardMaterial({ color: 0x556677, roughness: 0.3, metalness: 0.2 });
+      const base = new THREE.Mesh(new THREE.CylinderGeometry(3.5, 4, 0.8, 24), baseMat);
+      base.position.set(0, 0.4, 0);
+      base.receiveShadow = true;
+      campus.add(base);
+
+      const poolMat = new THREE.MeshStandardMaterial({
+        color: 0x1a3a5a,
+        roughness: 0.1,
+        metalness: 0.5,
+        transparent: true,
+        opacity: 0.8,
+      });
+      const pool = new THREE.Mesh(new THREE.CircleGeometry(3.8, 24), poolMat);
+      pool.rotation.x = -Math.PI / 2;
+      pool.position.set(0, 0.05, 0);
+      campus.add(pool);
+
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 2.5, 8), baseMat);
+      pillar.position.set(0, 1.65, 0);
+      campus.add(pillar);
+
+      const topMat = new THREE.MeshStandardMaterial({ color: 0x88ccff, emissive: 0x4488ff, emissiveIntensity: 0.2 });
+      const top = new THREE.Mesh(new THREE.SphereGeometry(0.6, 8, 8), topMat);
+      top.position.set(0, 3, 0);
+      campus.add(top);
+
+      const ringMat = new THREE.MeshStandardMaterial({
+        color: 0x88ccff,
+        emissive: 0x4488ff,
+        emissiveIntensity: 0.15,
+        transparent: true,
+        opacity: 0.6,
+        wireframe: true,
+      });
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(1.5, 0.05, 8, 24), ringMat);
+      ring.position.set(0, 1.2, 0);
+      ring.rotation.x = Math.PI / 3;
+      campus.add(ring);
+      const ring2 = ring.clone();
+      ring2.position.y = 1.8;
+      ring2.rotation.x = -Math.PI / 4;
+      campus.add(ring2);
+    }
+    // ─── Flower Beds (GLB) ───
+    // Regular flowerbed.glb positions
+    const regData = [
+      [16, -28, 0, 1], [-16, -28, 0, 2],
+      [40, 0, Math.PI / 2, 5], [28, 14, Math.PI / 2, 7], [28, -14, Math.PI / 2, 8],
+      [-40, 0, Math.PI / 2, 9], [-28, 14, Math.PI / 2, 11], [-28, -14, Math.PI / 2, 12],
+    ];
+    gltfLoader.load('./flowerbed.glb', gltf => {
+      const model = gltf.scene;
+      model.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      for (const [px, pz, rot, idx] of regData) {
+        const inst = model.clone();
+        inst.scale.set(10, 10, 10);
+        inst.position.set(px, 0, pz);
+        inst.rotation.y = rot;
+        campus.add(inst);
+        const label = createLabel(`🌺${idx}`);
+        label.position.set(px, 8, pz);
+        campus.add(label);
+      }
+    });
+
+    // Roundflower at #3 and #4
+    gltfLoader.load('./roundflower.glb', gltf => {
+      const m = gltf.scene;
+      m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      for (const [rx, rz, idx] of [[16, 28, 3], [-16, 28, 4]]) {
+        const inst = m.clone();
+        inst.scale.set(10, 10, 10);
+        inst.position.set(rx, 0, rz);
+        campus.add(inst);
+        const label = createLabel(`🌺${idx}`);
+        label.position.set(rx, 8, rz);
+        campus.add(label);
+      }
+    });
+
+    // Flowerbed2 at #6 and #10
+    gltfLoader.load('./flowerbed2.glb', gltf => {
+      const m = gltf.scene;
+      m.traverse(c => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      let fi = 0;
+      for (const [fx, fz, fi2] of [[16, 0, 6], [-16, 0, 10]]) {
+        const inst = m.clone();
+        inst.scale.set(10, 10, 10);
+        inst.position.set(fx, 0, fz);
+        campus.add(inst);
+        const label = createLabel(`🌺${fi2}`);
+        label.position.set(fx, 8, fz);
+        campus.add(label);
+      }
+    });
+
+    // ─── Update Stats ───
+    document.getElementById('building-count').textContent = buildings;
+    document.getElementById('tree-count').textContent = treePositions.length;
+
+    // ─── Raycaster Interaction ───
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const tooltip = document.getElementById('tooltip');
+    const tooltipName = document.getElementById('tooltip-name');
+    const tooltipDesc = document.getElementById('tooltip-desc');
+    const detailPanel = document.getElementById('detail-panel');
+    const dpName = document.getElementById('dp-name');
+    const dpDesc = document.getElementById('dp-desc');
+
+    let selectedObj = null;
+    let hoveredObj = null;
+
+    function showDetail(obj) {
+      const { name, desc } = obj.userData;
+      if (!name) return;
+      selectedObj = obj;
+      const info = buildingInfo[name] || {};
+      dpName.textContent = `${info.icon || '🏗️'} ${name}`;
+      dpDesc.textContent = desc;
+      document.getElementById('dp-type').textContent = info.type || '—';
+      document.getElementById('dp-floors').textContent = info.floors ? `${info.floors} 层` : '—';
+      document.getElementById('dp-area').textContent = info.area || '—';
+      document.getElementById('dp-hours').textContent = info.hours || '—';
+      detailPanel.style.display = 'block';
+    }
+
+    function hideDetail() {
+      selectedObj = null;
+      detailPanel.style.display = 'none';
+    }
+
+    function doRaycast(e) {
+      pointer.x = (e.clientX / window.innerWidth) * 2 - 1;
+      pointer.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+      const hits = raycaster.intersectObjects(campus.children, true);
+      return hits.filter(h => h.object.userData?.type === 'building' && h.object.userData?.name);
+    }
+
+    // Hover tooltip
+    renderer.domElement.addEventListener('pointermove', e => {
+      const hits = doRaycast(e);
+      if (hits.length > 0) {
+        const obj = hits[0].object;
+        const { name, desc } = obj.userData;
+        tooltipName.textContent = name;
+        tooltipDesc.textContent = desc;
+        tooltip.style.display = 'block';
+        tooltip.style.left = (e.clientX + 16) + 'px';
+        tooltip.style.top = (e.clientY + 16) + 'px';
+        renderer.domElement.style.cursor = 'pointer';
+        hoveredObj = obj;
+      } else {
+        tooltip.style.display = 'none';
+        renderer.domElement.style.cursor = 'default';
+        hoveredObj = null;
+      }
+    });
+
+    // Click to show detail
+    renderer.domElement.addEventListener('click', e => {
+      const hits = doRaycast(e);
+      if (hits.length > 0) {
+        showDetail(hits[0].object);
+      }
+    });
+
+    // Close detail panel
+    document.getElementById('dp-close').addEventListener('click', hideDetail);
+
+    renderer.domElement.addEventListener('pointerleave', () => {
+      tooltip.style.display = 'none';
+    });
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') hideDetail();
+      if (e.key === '1') switchView('perspective');
+      if (e.key === '2') switchView('birdseye');
+      if (e.key === '3') switchView('north');
+    });
+
+    // ─── Resize ───
+    window.addEventListener('resize', () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      renderer.setSize(w, h);
+      labelRenderer.setSize(w, h);
+    });
+
+    // ─── FPS Counter ───
+    let frameCount = 0;
+    let lastFpsUpdate = 0;
+    const fpsDisplay = document.getElementById('fps-display');
+
+    // ─── Animate ───
+    function animate(time) {
+      requestAnimationFrame(animate);
+
+      // Animate fountain
+      campus.traverse(child => {
+        if (child.isMesh && child.material.wireframe) {
+          child.rotation.y += child.userData.speed || 0.01;
+        }
+        if (child.isPoints && child.userData.type === 'fountainParticles') {
+          const pos = child.geometry.attributes.position;
+          const speeds = child.userData.speeds;
+          for (let i = 0; i < child.userData.count; i++) {
+            pos.array[i * 3 + 1] += speeds[i] * 0.03;
+            if (pos.array[i * 3 + 1] > 3.5) {
+              pos.array[i * 3 + 1] = 0;
+              const a = Math.random() * Math.PI * 2;
+              const r = 0.3 + Math.random() * 1.2;
+              pos.array[i * 3] = Math.cos(a) * r;
+              pos.array[i * 3 + 2] = Math.sin(a) * r;
+            }
+          }
+          pos.needsUpdate = true;
+        }
+      });
+
+      controls.update();
+
+      // Smooth view transition
+      if (viewAnimating) {
+        viewAnimating.progress += 0.025;
+        if (viewAnimating.progress >= 1) {
+          viewAnimating = null;
+        } else {
+          const t = viewAnimating.progress;
+          const ease = t * t * (3 - 2 * t);
+          camera.position.lerpVectors(viewAnimating.fromPos, viewAnimating.toPos, ease);
+          controls.target.lerpVectors(viewAnimating.fromTarget, viewAnimating.toTarget, ease);
+        }
+      }
+
+      renderer.render(scene, camera);
+      labelRenderer.render(scene, camera);
+
+      // FPS
+      frameCount++;
+      if (time - lastFpsUpdate >= 1000) {
+        fpsDisplay.textContent = frameCount;
+        frameCount = 0;
+        lastFpsUpdate = time;
+      }
+    }
+    animate(0);
+
+    console.log('🏫 校园数字孪生系统已启动');
+    console.log(`  建筑: ${buildings}, 树木: ${treePositions.length}`);
+  </script>
+</body>
+</html>
